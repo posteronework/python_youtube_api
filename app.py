@@ -70,7 +70,7 @@ def download_audio():
         # Конвертируем в WAV
         temp_wav = "audio.wav"
         audio = AudioSegment.from_file(temp_mp4, format="mp4")
-        audio.export(temp_wav, format="wav", parameters=["-ar", "16000", "-ac", "1"])
+        audio.export(temp_wav, format="wav", parameters=["-ar", "16000", "-ac", "1"])  # 16 кГц, моно
 
         # Удаляем временный MP4
         os.remove(temp_mp4)
