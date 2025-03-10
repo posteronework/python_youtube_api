@@ -44,59 +44,48 @@
 from flask import Flask, request, send_file, jsonify
 import yt_dlp
 import os
-import browser_cookie3
 
 app = Flask(__name__)
 
 DOWNLOAD_PATH = "downloads"
 COOKIES_FILE = "cookies.txt"
+TEMP_COOKIES_FILE = "temp_cookies.txt"
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
-def clear_cookies(cookies_file=COOKIES_FILE):
+def refresh_cookies(username, password):
+    ydl_opts = {
+        'username': username,
+        'password': password,
+        'cookiefile': COOKIES_FILE,
+        'quiet': True,
+        'no_warnings': True,
+        'format': 'bestaudio/best',
+    }
+
     try:
-        if os.path.exists(cookies_file):
-            os.remove(cookies_file)
-            print(f"Файл {cookies_file} очищен.")
-        else:
-            print(f"Файл {cookies_file} не найден.")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info("https://www.youtube.com")
+
     except Exception as e:
-        print(f"Ошибка при очистке файла куков: {e}")
-
-def get_fresh_cookies(cookies_file=COOKIES_FILE):
-    try:
-        # Извлеките куки из браузера
-        cookies = browser_cookie3.chrome(domain_name='youtube.com')
-
-        # Сохраните куки в файл в формате Netscape
-        with open(cookies_file, "w") as f:
-            f.write("# HTTP Cookie File\n")
-            for cookie in cookies:
-                f.write(f"{cookie.domain}\tTRUE\t{cookie.path}\tFALSE\t{int(cookie.expires)}\t{cookie.name}\t{cookie.value}\n")
-
-        print(f"Свежие куки сохранены в {cookies_file}")
-    except Exception as e:
-        print(f"Ошибка при получении свежих куков: {e}")
-
-@app.route("/upload_cookies", methods=["POST"])
-def upload_cookies():
-    clear_cookies()
-    get_fresh_cookies()
-    return jsonify({"message": "Файл с куками успешно загружен"}), 200
+        print(f"Ошибка при обновлении кук: {e}")
 
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
     youtube_url = request.args.get("url")
+    username = request.args.get("username")
+    password = request.args.get("password")
 
-    if not youtube_url:
-        return jsonify({"error": "URL обязателен"}), 400
+    if not youtube_url or not username or not password:
+        return jsonify({"error": "URL, username, and password are required"}), 400
 
     try:
-        # Параметры для скачивания аудио
+        refresh_cookies(username, password)
+
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-            "cookiefile": COOKIES_FILE,  # Используем обновленные куки
+            "cookiefile": TEMP_COOKIES_FILE,
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
@@ -112,6 +101,7 @@ def download_audio():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
