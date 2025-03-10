@@ -48,16 +48,25 @@ import os
 app = Flask(__name__)
 
 DOWNLOAD_PATH = "downloads"
-COOKIES_FILE = "cookies.txt"  # Ensure this file is uploaded to the server
+COOKIES_FILE = "cookies.txt"  # Файл, в который будут сохраняться куки
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
+
+@app.route("/upload_cookies", methods=["POST"])
+def upload_cookies():
+    if 'cookies' not in request.files:
+        return jsonify({"error": "Файл с куками не найден"}), 400
+
+    file = request.files['cookies']
+    file.save(COOKIES_FILE)
+    return jsonify({"message": "Файл с куками успешно загружен"}), 200
 
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
     youtube_url = request.args.get("url")
 
     if not youtube_url:
-        return jsonify({"error": "URL is required"}), 400
+        return jsonify({"error": "URL обязателен"}), 400
 
     try:
         # Параметры для скачивания аудио
