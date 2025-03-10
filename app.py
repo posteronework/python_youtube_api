@@ -44,6 +44,7 @@
 from flask import Flask, request, send_file, jsonify
 import yt_dlp
 import os
+import browser_cookie3
 
 app = Flask(__name__)
 
@@ -52,24 +53,6 @@ COOKIES_FILE = "cookies.txt"
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
-# Функция для получения свежих кук через логин и пароль
-def get_fresh_cookies(youtube_url, username, password, cookies_file=COOKIES_FILE):
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-        "cookiefile": cookies_file,  # Сохраняем куки в файл
-        "username": username,
-        "password": password,
-        "quiet": True,  # Убираем лишние выводы
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        # Выполняем извлечение информации (без загрузки самого контента), чтобы получить куки
-        ydl.extract_info(youtube_url, download=False)
-
-    print(f"Куки обновлены и сохранены в {cookies_file}")
-
-# Очистка файла куков перед их обновлением
 def clear_cookies(cookies_file=COOKIES_FILE):
     try:
         if os.path.exists(cookies_file):
@@ -80,22 +63,32 @@ def clear_cookies(cookies_file=COOKIES_FILE):
     except Exception as e:
         print(f"Ошибка при очистке файла куков: {e}")
 
+def get_fresh_cookies(cookies_file=COOKIES_FILE):
+    try:
+        # Extract cookies from the browser
+        cookies = browser_cookie3.chrome(domain_name='youtube.com')
+
+        # Save cookies to a file
+        with open(cookies_file, "w") as f:
+            for cookie in cookies:
+                f.write(f"{cookie.name}\t{cookie.value}\t{cookie.domain}\t{cookie.path}\t{cookie.expires}\t{cookie.secure}\t{cookie.http_only}\n")
+
+        print(f"Свежие куки сохранены в {cookies_file}")
+    except Exception as e:
+        print(f"Ошибка при получении свежих куков: {e}")
 
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
     youtube_url = request.args.get("url")
-    username = request.args.get("username")
-    password = request.args.get("password")
+    username = request.args.get("username")  # Get username from request
+    password = request.args.get("password")  # Get password from request
 
     if not youtube_url:
         return jsonify({"error": "URL is required"}), 400
 
-    if not username or not password:
-        return jsonify({"error": "Username and password are required for authorization"}), 400
-
     try:
         clear_cookies(COOKIES_FILE)  # Очистить старые куки
-        get_fresh_cookies(youtube_url, username, password)  # Получить новые куки
+        get_fresh_cookies(COOKIES_FILE)  # Получить новые куки
 
         # Параметры для скачивания аудио
         ydl_opts = {
@@ -106,7 +99,9 @@ def download_audio():
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
                 "preferredquality": "192"
-            }]
+            }],
+            "username": username,  # Add username for authentication
+            "password": password   # Add password for authentication
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -117,7 +112,6 @@ def download_audio():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
