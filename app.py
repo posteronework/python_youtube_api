@@ -44,21 +44,44 @@
 from flask import Flask, request, send_file, jsonify
 import yt_dlp
 import os
+import browser_cookie3
 
 app = Flask(__name__)
 
 DOWNLOAD_PATH = "downloads"
-COOKIES_FILE = "cookies.txt"  # Файл, в который будут сохраняться куки
+COOKIES_FILE = "cookies.txt"
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
+def clear_cookies(cookies_file=COOKIES_FILE):
+    try:
+        if os.path.exists(cookies_file):
+            os.remove(cookies_file)
+            print(f"Файл {cookies_file} очищен.")
+        else:
+            print(f"Файл {cookies_file} не найден.")
+    except Exception as e:
+        print(f"Ошибка при очистке файла куков: {e}")
+
+def get_fresh_cookies(cookies_file=COOKIES_FILE):
+    try:
+        # Извлеките куки из браузера
+        cookies = browser_cookie3.chrome(domain_name='youtube.com')
+
+        # Сохраните куки в файл в формате Netscape
+        with open(cookies_file, "w") as f:
+            f.write("# HTTP Cookie File\n")
+            for cookie in cookies:
+                f.write(f"{cookie.domain}\tTRUE\t{cookie.path}\tFALSE\t{int(cookie.expires)}\t{cookie.name}\t{cookie.value}\n")
+
+        print(f"Свежие куки сохранены в {cookies_file}")
+    except Exception as e:
+        print(f"Ошибка при получении свежих куков: {e}")
+
 @app.route("/upload_cookies", methods=["POST"])
 def upload_cookies():
-    if 'cookies' not in request.files:
-        return jsonify({"error": "Файл с куками не найден"}), 400
-
-    file = request.files['cookies']
-    file.save(COOKIES_FILE)
+    clear_cookies()
+    get_fresh_cookies()
     return jsonify({"message": "Файл с куками успешно загружен"}), 200
 
 @app.route("/download_audio", methods=["GET"])
@@ -73,7 +96,7 @@ def download_audio():
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-            "cookiefile": COOKIES_FILE,  # Используем загруженные куки
+            "cookiefile": COOKIES_FILE,  # Используем обновленные куки
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
