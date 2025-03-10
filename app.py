@@ -48,32 +48,9 @@ import os
 app = Flask(__name__)
 
 DOWNLOAD_PATH = "downloads"
-COOKIES_FILE = "cookies.txt"
+COOKIES_FILE = "cookies.txt"  # Ensure this file is uploaded to the server
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-
-def clear_cookies(cookies_file=COOKIES_FILE):
-    try:
-        if os.path.exists(cookies_file):
-            os.remove(cookies_file)
-            print(f"Файл {cookies_file} очищен.")
-        else:
-            print(f"Файл {cookies_file} не найден.")
-    except Exception as e:
-        print(f"Ошибка при очистке файла куков: {e}")
-
-def get_fresh_cookies(cookies_file=COOKIES_FILE):
-    try:
-        # Extract cookies from the browser and save to a file
-        ydl_opts = {
-            'cookiesfrombrowser': ('chrome',),  # Extract from Chrome
-            'cookies': cookies_file
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info("https://www.youtube.com", download=False)
-        print(f"Свежие куки сохранены в {cookies_file}")
-    except Exception as e:
-        print(f"Ошибка при получении свежих куков: {e}")
 
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
@@ -83,14 +60,11 @@ def download_audio():
         return jsonify({"error": "URL is required"}), 400
 
     try:
-        clear_cookies(COOKIES_FILE)  # Очистить старые куки
-        get_fresh_cookies(COOKIES_FILE)  # Получить новые куки
-
         # Параметры для скачивания аудио
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-            "cookiefile": COOKIES_FILE,  # Используем обновленные куки
+            "cookiefile": COOKIES_FILE,  # Используем загруженные куки
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
