@@ -44,7 +44,6 @@
 from flask import Flask, request, send_file, jsonify
 import yt_dlp
 import os
-import browser_cookie3
 
 app = Flask(__name__)
 
@@ -65,14 +64,13 @@ def clear_cookies(cookies_file=COOKIES_FILE):
 
 def get_fresh_cookies(cookies_file=COOKIES_FILE):
     try:
-        # Extract cookies from the browser
-        cookies = browser_cookie3.chrome(domain_name='youtube.com')
-
-        # Save cookies to a file
-        with open(cookies_file, "w") as f:
-            for cookie in cookies:
-                f.write(f"{cookie.name}\t{cookie.value}\t{cookie.domain}\t{cookie.path}\t{cookie.expires}\t{cookie.secure}\t{cookie.http_only}\n")
-
+        # Extract cookies from the browser and save to a file
+        ydl_opts = {
+            'cookiesfrombrowser': ('chrome',),  # Extract from Chrome
+            'cookies': cookies_file
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info("https://www.youtube.com", download=False)
         print(f"Свежие куки сохранены в {cookies_file}")
     except Exception as e:
         print(f"Ошибка при получении свежих куков: {e}")
@@ -80,8 +78,6 @@ def get_fresh_cookies(cookies_file=COOKIES_FILE):
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
     youtube_url = request.args.get("url")
-    username = request.args.get("username")  # Get username from request
-    password = request.args.get("password")  # Get password from request
 
     if not youtube_url:
         return jsonify({"error": "URL is required"}), 400
@@ -99,9 +95,7 @@ def download_audio():
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
                 "preferredquality": "192"
-            }],
-            "username": username,  # Add username for authentication
-            "password": password   # Add password for authentication
+            }]
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
