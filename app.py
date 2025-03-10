@@ -41,20 +41,14 @@
 from flask import Flask, request, send_file, jsonify
 import yt_dlp
 import os
-import re
 
 app = Flask(__name__)
 
-# Папка для загрузок
 DOWNLOAD_PATH = "downloads"
+COOKIES_FILE = "cookies.txt"  # Путь к cookies
+
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
-# Файл cookies (если нужен вход в YouTube)
-COOKIES_FILE = "cookies.txt"  # Экспортируй из браузера (см. инструкции)
-
-# Функция для очистки имени файла
-def sanitize_filename(name):
-    return re.sub(r'[\\/*?:"<>|]', "", name)
 
 @app.route("/download_audio", methods=["GET"])
 def download_audio():
@@ -67,26 +61,19 @@ def download_audio():
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
+            "cookiefile": COOKIES_FILE,  # Добавляем cookies
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
                 "preferredquality": "192"
-            }],
-            "cookies": COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
-            "noprogress": True,  # Убираем прогресс из логов
-            "quiet": True,  # Отключаем лишние логи
-            "throttledratelimit": 5000000,  # 5MB/s (обход 429 Too Many Requests)
+            }]
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(youtube_url, download=True)
-            title = sanitize_filename(info.get("title", "audio"))
-            filename = os.path.join(DOWNLOAD_PATH, f"{title}.wav")
+            filename = ydl.prepare_filename(info).replace(".webm", ".wav").replace(".m4a", ".wav")
 
-        # Отправляем файл и удаляем его после отправки
-        response = send_file(filename, as_attachment=True)
-        os.remove(filename)
-        return response
+        return send_file(filename, as_attachment=True)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
