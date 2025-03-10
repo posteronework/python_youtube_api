@@ -48,8 +48,7 @@ import os
 app = Flask(__name__)
 
 DOWNLOAD_PATH = "downloads"
-COOKIES_FILE = "cookies.txt"
-TEMP_COOKIES_FILE = "temp_cookies.txt"
+COOKIES_FILE = "cookies.txt"  # Используется постоянный файл для хранения куков
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
@@ -57,16 +56,16 @@ def refresh_cookies(username, password):
     ydl_opts = {
         'username': username,
         'password': password,
-        'cookiefile': COOKIES_FILE,
-        'quiet': True,
-        'no_warnings': True,
-        'format': 'bestaudio/best',
+        'cookiefile': COOKIES_FILE,  # Сохранение куков в файл
+        'quiet': True,  # Отключение вывода в консоль
+        'no_warnings': True,  # Отключение предупреждений
+        'format': 'bestaudio/best',  # Лучший формат аудио
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Используем любой URL для авторизации (нам не нужно скачивать видео)
             ydl.extract_info("https://www.youtube.com")
-
     except Exception as e:
         print(f"Ошибка при обновлении кук: {e}")
 
@@ -80,12 +79,13 @@ def download_audio():
         return jsonify({"error": "URL, username, and password are required"}), 400
 
     try:
+        # Обновление кук перед загрузкой
         refresh_cookies(username, password)
 
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-            "cookiefile": TEMP_COOKIES_FILE,
+            "cookiefile": COOKIES_FILE,  # Используем постоянный файл с куками
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
