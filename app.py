@@ -9,9 +9,7 @@ DOWNLOAD_PATH = "downloads"
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
 def get_cookie_jar():
-    """
-    Создает и возвращает объект http.cookiejar.CookieJar для хранения куков.
-    """
+
     return http.cookiejar.CookieJar()
 
 @app.route("/download_audio", methods=["GET"])
@@ -24,16 +22,14 @@ def download_audio():
         return jsonify({"error": "URL, username, and password are required"}), 400
 
     try:
-        # Создаем объект для хранения куков
         cookie_jar = get_cookie_jar()
 
-        # Настройки для yt-dlp с использованием логина, пароля и куков
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": f"{DOWNLOAD_PATH}/%(title)s.%(ext)s",
-            "username": username,  # Передаем логин напрямую
-            "password": password,  # Передаем пароль напрямую
-            "cookiejar": cookie_jar,  # Используем http.cookiejar для хранения куков
+            "username": username,
+            "password": password,
+            "cookiejar": cookie_jar,
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
